@@ -1,0 +1,1987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VOS TV — Liquid Glass Custom Launcher</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Inter:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --glass-blur: 36px;
+      --glass-bg: rgba(12, 15, 22, 0.56);
+      --glass-bg-deep: rgba(10, 12, 18, 0.78);
+      --glass-card-bg: rgba(18, 22, 32, 0.48);
+      --glass-border-top: rgba(255, 255, 255, 0.34);
+      --glass-border-side: rgba(255, 255, 255, 0.14);
+      --glass-border-bottom: rgba(255, 255, 255, 0.06);
+      --glass-inner-glow: inset 0 1.5px 1px rgba(255, 255, 255, 0.32), inset 0 -14px 28px rgba(0, 0, 0, 0.38);
+      --theme-accent: #a5d8ff;
+      --theme-accent-rgb: 165, 216, 255;
+      --vignette-opacity: 0.46;
+      --focus-glow: 0 20px 44px -8px rgba(0, 0, 0, 0.72), 0 0 0 2.5px rgba(var(--theme-accent-rgb), 0.92), 0 0 28px rgba(var(--theme-accent-rgb), 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #06080c;
+      color: #ffffff;
+    }
+
+    /* Fullscreen Wallpaper Layer */
+    #wallpaper-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transition: background-image 0.9s ease-in-out, transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), filter 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+      transform: scale(1.02);
+    }
+
+    #wallpaper-vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(0, 0, 0, 0.06) 25%, rgba(0, 0, 0, var(--vignette-opacity)) 100%),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.36) 0%, transparent 28%, transparent 58%, rgba(0, 0, 0, 0.64) 100%);
+      transition: opacity 0.4s ease;
+    }
+
+    /* Home Screen Viewport Container for Phone-Style App Launch Zoom/Blur */
+    #home-stage {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transform-origin: center center;
+      transition: transform 0.48s cubic-bezier(0.22, 1, 0.36, 1), filter 0.48s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.48s ease;
+      will-change: transform, filter, opacity;
+    }
+
+    #home-stage.is-launching {
+      transform: scale(0.92);
+      filter: blur(28px) brightness(0.68);
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    /* Deep Frosted Dark Liquid Glass Material */
+    .liquid-glass {
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur)) saturate(185%);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(185%);
+      border-top: 1px solid var(--glass-border-top);
+      border-left: 1px solid var(--glass-border-side);
+      border-right: 1px solid var(--glass-border-side);
+      border-bottom: 1px solid var(--glass-border-bottom);
+      box-shadow:
+        0 24px 56px -12px rgba(0, 0, 0, 0.65),
+        var(--glass-inner-glow);
+      transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.3s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .liquid-glass-deep {
+      background: var(--glass-bg-deep);
+      backdrop-filter: blur(calc(var(--glass-blur) + 10px)) saturate(195%);
+      -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 10px)) saturate(195%);
+      border-top: 1px solid rgba(255, 255, 255, 0.36);
+      border-left: 1px solid rgba(255, 255, 255, 0.16);
+      border-right: 1px solid rgba(255, 255, 255, 0.16);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow:
+        0 32px 80px -12px rgba(0, 0, 0, 0.82),
+        inset 0 1.5px 1px rgba(255, 255, 255, 0.34),
+        inset 0 -16px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    .liquid-sheen {
+      position: relative;
+      overflow: hidden;
+    }
+    .liquid-sheen::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(
+        138deg,
+        rgba(255, 255, 255, 0.20) 0%,
+        rgba(255, 255, 255, 0.04) 36%,
+        transparent 62%,
+        rgba(var(--theme-accent-rgb), 0.10) 100%
+      );
+      border-radius: inherit;
+    }
+
+    /* Bubbly Liquid Glass Clock Typography */
+    .bubbly-clock-font {
+      font-family: 'Fredoka', 'Nunito', sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.98) 0%,
+        rgba(255, 255, 255, 0.84) 52%,
+        rgba(var(--theme-accent-rgb), 0.88) 100%
+      );
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(255, 255, 255, 0.28);
+      filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.42)) drop-shadow(0 1px 0 rgba(255, 255, 255, 0.35));
+    }
+
+    /* Individual Clock Digit Blur-Morph Transition */
+    .clock-digit-slot {
+      display: inline-block;
+      position: relative;
+      min-width: 0.58em;
+      text-align: center;
+      transition: filter 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease, transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: filter, opacity, transform;
+    }
+
+    .clock-digit-slot.digit-blur-out {
+      filter: blur(11px);
+      opacity: 0;
+      transform: scale(0.88) translateY(-4px);
+    }
+
+    .clock-digit-slot.digit-blur-in {
+      animation: digitBlurReveal 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes digitBlurReveal {
+      0% {
+        filter: blur(11px);
+        opacity: 0;
+        transform: scale(1.08) translateY(4px);
+      }
+      100% {
+        filter: blur(0px);
+        opacity: 1;
+        transform: scale(1) translateY(0px);
+      }
+    }
+
+    /* Top-Right Options Pill */
+    .options-pill {
+      transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.24s ease, background 0.24s ease;
+    }
+    .options-pill.is-focused,
+    .options-pill:hover {
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: var(--focus-glow);
+      background: rgba(24, 30, 44, 0.72);
+    }
+
+    /* Dock: glass is its own backdrop layer, so cards are never clipped by it */
+    .dock-shell {
+      position: relative;
+      width: min(96vw, 1080px);
+      padding: 22px 24px 18px 24px;
+      overflow: visible;
+    }
+
+    .dock-glass {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      border-radius: 40px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* No scroll container and no overflow clipping: focused / edge cards overlay the dock freely */
+    .dock-viewport {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      overflow: visible;
+      padding: 18px 18px 16px 18px;
+    }
+
+    .dock-track {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform;
+    }
+
+    /* Exactly 5 Unified 16:10 Monochrome Frosted Liquid Glass Cards Visible at Once */
+    .app-banner-card {
+      flex: 0 0 calc((100% - 80px) / 5);
+      aspect-ratio: 16 / 10;
+      border-radius: 22px;
+      position: relative;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: linear-gradient(
+        155deg,
+        rgba(var(--theme-accent-rgb), 0.22) 0%,
+        rgba(16, 20, 30, 0.64) 55%,
+        rgba(10, 13, 20, 0.82) 100%
+      );
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border-top: 1px solid rgba(255, 255, 255, 0.36);
+      border-left: 1px solid rgba(255, 255, 255, 0.16);
+      border-right: 1px solid rgba(255, 255, 255, 0.16);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow:
+        0 14px 28px -6px rgba(0, 0, 0, 0.52),
+        inset 0 1px 1px rgba(255, 255, 255, 0.34),
+        inset 0 -10px 20px rgba(0, 0, 0, 0.35);
+      transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.26s ease, background 0.35s ease, opacity 0.3s ease;
+    }
+
+    .app-banner-card.is-offscreen {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .app-banner-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(150deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.03) 44%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .app-banner-card.is-focused {
+      transform: translateY(-6px) scale(1.08);
+      z-index: 20;
+      background: linear-gradient(
+        155deg,
+        rgba(var(--theme-accent-rgb), 0.38) 0%,
+        rgba(22, 28, 42, 0.75) 55%,
+        rgba(12, 16, 26, 0.90) 100%
+      );
+      box-shadow: var(--focus-glow);
+    }
+
+    /* Monochrome Wallpaper-Synced Icon Medallion */
+    .mono-icon-medallion {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(var(--theme-accent-rgb), 0.16);
+      border: 1px solid rgba(var(--theme-accent-rgb), 0.38);
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35), 0 6px 14px rgba(0, 0, 0, 0.32);
+      color: var(--theme-accent);
+      transition: color 0.35s ease, background 0.35s ease, border-color 0.35s ease, transform 0.25s ease;
+    }
+
+    .app-banner-card.is-focused .mono-icon-medallion {
+      transform: scale(1.06);
+      background: rgba(var(--theme-accent-rgb), 0.26);
+      border-color: rgba(var(--theme-accent-rgb), 0.72);
+    }
+
+    /* Minimal Centered Liquid Glass Pill Scrollbar */
+    .dock-scrollbar-track {
+      width: 148px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+      position: relative;
+      margin: 4px auto 0 auto;
+    }
+
+    .dock-scrollbar-thumb {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.85), var(--theme-accent));
+      box-shadow: 0 0 12px rgba(var(--theme-accent-rgb), 0.65);
+      transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), width 0.22s ease, background 0.35s ease;
+    }
+
+    /* Options Hub Tabs & Interactive Controls */
+    .hub-tab-btn {
+      transition: all 0.22s ease;
+    }
+    .hub-tab-btn.active {
+      background: rgba(var(--theme-accent-rgb), 0.24);
+      border-color: rgba(var(--theme-accent-rgb), 0.65);
+      color: #ffffff;
+      box-shadow: 0 0 20px rgba(var(--theme-accent-rgb), 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+    }
+
+    .glass-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      transition: all 0.2s ease;
+    }
+    .glass-btn:hover,
+    .glass-btn.is-focused {
+      background: rgba(var(--theme-accent-rgb), 0.24);
+      border-color: rgba(var(--theme-accent-rgb), 0.72);
+      transform: translateY(-1px);
+    }
+
+    /* Custom Scrollbar inside Options Modal */
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+    }
+
+    /* App Launch Fullscreen Window Transition */
+    #launched-app-window {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transform: scale(1.06);
+      transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1), transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    #launched-app-window.is-open {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Victus OS Boot Screen */
+    #boot-screen {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 100;
+      background: #030406;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+      opacity: 1;
+    }
+    #boot-screen::before {
+      content: "";
+      z-index: 1;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1.5px);
+      background-size: 7px 7px;
+    }
+    #boot-screen.fade-out {
+      opacity: 0;
+      transform: scale(1.04);
+      pointer-events: none;
+    }
+
+    /* Swirling black-and-gray backdrop */
+    .boot-swirl {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .boot-swirl .sw {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 190vmax; height: 190vmax;
+      margin: -95vmax 0 0 -95vmax;
+      will-change: transform;
+    }
+    .boot-swirl .sw-a {
+      background: conic-gradient(from 0deg, #030406 0%, #2b2e34 14%, #07080b 30%, #3b3e45 46%, #050608 62%, #26292f 78%, #030406 100%);
+      animation: bootSwirl 26s linear infinite;
+    }
+    .boot-swirl .sw-b {
+      background: conic-gradient(from 90deg, rgba(3,4,6,0) 0%, rgba(70,74,82,0.55) 18%, rgba(3,4,6,0) 38%, rgba(54,57,64,0.5) 62%, rgba(3,4,6,0) 82%);
+      animation: bootSwirl 38s linear infinite reverse;
+    }
+    .boot-swirl::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(3,4,6,0.15) 0%, rgba(3,4,6,0.72) 78%, rgba(3,4,6,0.92) 100%);
+    }
+    @keyframes bootSwirl {
+      to { transform: rotate(360deg); }
+    }
+
+    .boot-stack {
+      z-index: 2;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    /* Liquid glass title */
+    .boot-title {
+      font-family: 'Fredoka', 'Nunito', sans-serif;
+      font-weight: 600;
+      font-size: clamp(54px, 11vw, 168px);
+      line-height: 1;
+      letter-spacing: 0.14em;
+      margin-right: -0.14em;
+      text-transform: uppercase;
+      background:
+        linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.95) 50%, transparent 62%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.58) 50%, rgba(var(--theme-accent-rgb), 0.9) 100%);
+      background-size: 260% 100%, 100% 100%;
+      background-repeat: no-repeat;
+      background-position: 160% 0, 0 0;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.42);
+      filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.65)) drop-shadow(0 0 26px rgba(var(--theme-accent-rgb), 0.3)) drop-shadow(0 1px 0 rgba(255, 255, 255, 0.4));
+      animation: bootSheen 3.4s ease-in-out infinite;
+    }
+    @keyframes bootSheen {
+      0%   { background-position: 160% 0, 0 0; }
+      60%  { background-position: -60% 0, 0 0; }
+      100% { background-position: -60% 0, 0 0; }
+    }
+
+    .boot-subtitle {
+      margin-top: clamp(10px, 1.6vw, 22px);
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: clamp(13px, 1.6vw, 24px);
+      letter-spacing: 0.55em;
+      margin-right: -0.55em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    /* Spinning loader ring */
+    .boot-ring {
+      margin-top: clamp(36px, 6vw, 86px);
+      width: clamp(60px, 7vw, 108px);
+      height: clamp(60px, 7vw, 108px);
+      animation: bootSpin 1.1s linear infinite;
+      filter: drop-shadow(0 0 12px rgba(var(--theme-accent-rgb), 0.55));
+    }
+    .boot-ring circle {
+      fill: none;
+      stroke-width: 5;
+    }
+    .boot-ring-track { stroke: rgba(255, 255, 255, 0.14); }
+    .boot-ring-arc {
+      stroke: rgba(255, 255, 255, 0.96);
+      stroke-linecap: round;
+      stroke-dasharray: 84 181;
+    }
+    @keyframes bootSpin {
+      to { transform: rotate(360deg); }
+    }
+
+    .boot-label {
+      margin-top: clamp(16px, 2.4vw, 32px);
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: clamp(13px, 1.6vw, 24px);
+      letter-spacing: 0.55em;
+      margin-right: -0.55em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.72);
+      animation: bootPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes bootPulse {
+      0%, 100% { opacity: 0.55; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Victus OS Boot Screen -->
+  <div id="boot-screen">
+    <div class="boot-swirl"><div class="sw sw-a"></div><div class="sw sw-b"></div></div>
+    <div class="boot-stack">
+      <div class="boot-title">Victus OS</div>
+      <div class="boot-subtitle">TV Edition</div>
+      <svg class="boot-ring" viewBox="0 0 100 100" aria-hidden="true">
+        <circle class="boot-ring-track" cx="50" cy="50" r="42" />
+        <circle class="boot-ring-arc" cx="50" cy="50" r="42" />
+      </svg>
+      <div class="boot-label">Booting</div>
+    </div>
+    <div id="boot-progress-bar" style="display:none;"></div>
+  </div>
+
+  <!-- Full-Screen Wallpaper Layer -->
+  <div id="wallpaper-layer"></div>
+  <div id="wallpaper-vignette"></div>
+
+  <!-- Main Home Stage (Zooms Out & Blurs Progressively When Opening an App) -->
+  <main id="home-stage" class="p-6 sm:p-10 md:p-12">
+
+    <!-- Top Row: Liquid Glass Bubbly Clock + AccuWeather (Left) & Single Options Pill (Right) -->
+    <header class="w-full flex items-start justify-between gap-4">
+
+      <!-- Top-Left Liquid Glass Clock & AccuWeather Widget -->
+      <div class="liquid-glass liquid-sheen rounded-[28px] px-6 py-4 sm:px-7 sm:py-5 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+        <!-- Bubbly Liquid Glass Time & Date -->
+        <div class="flex flex-col">
+          <div id="clock-display" class="bubbly-clock-font text-4xl sm:text-5xl md:text-[58px] leading-none flex items-center select-none" aria-live="polite">
+            <span class="clock-digit-slot" id="digit-0">0</span>
+            <span class="clock-digit-slot" id="digit-1">8</span>
+            <span class="mx-0.5 opacity-90">:</span>
+            <span class="clock-digit-slot" id="digit-2">3</span>
+            <span class="clock-digit-slot" id="digit-3">5</span>
+            <span id="clock-seconds-wrap" class="hidden items-center">
+              <span class="mx-0.5 opacity-75 text-3xl sm:text-4xl">:</span>
+              <span class="clock-digit-slot text-3xl sm:text-4xl" id="digit-4">0</span>
+              <span class="clock-digit-slot text-3xl sm:text-4xl" id="digit-5">0</span>
+            </span>
+            <span id="clock-ampm" class="hidden ml-2 text-lg sm:text-xl font-bold tracking-wider uppercase opacity-85">AM</span>
+          </div>
+          <div id="clock-date" class="mt-2 text-xs sm:text-[13px] font-semibold tracking-wider uppercase text-white/80">
+            Saturday, November 14
+          </div>
+        </div>
+
+        <!-- Vertical Liquid Glass Divider -->
+        <div class="hidden sm:block w-px h-14 bg-gradient-to-b from-transparent via-white/25 to-transparent"></div>
+
+        <!-- AccuWeather Live Glass Module -->
+        <button
+          type="button"
+          id="weather-pill-trigger"
+          title="Click to configure AccuWeather city & units"
+          class="flex items-center gap-3.5 text-left rounded-2xl px-2 py-1 -mx-2 -my-1 hover:bg-white/10 transition cursor-pointer"
+        >
+          <div id="weather-icon-box" class="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/10 border border-white/20 shadow-inner" style="color: var(--theme-accent);">
+            <!-- Dynamic Weather SVG -->
+          </div>
+          <div class="flex flex-col">
+            <div class="flex items-baseline gap-2">
+              <span id="weather-temp" class="bubbly-clock-font text-2xl sm:text-3xl leading-none">21°</span>
+              <span id="weather-cond" class="text-xs sm:text-sm font-semibold text-white/90">Clear &amp; Crisp</span>
+            </div>
+            <div class="flex items-center gap-2 mt-1.5 text-[11px] text-white/70 font-medium">
+              <span id="weather-city">Erbil</span>
+              <span>&bull;</span>
+              <span id="weather-hilo">H: 23° L: 11°</span>
+            </div>
+            <div class="flex items-center gap-1 mt-1 text-[10px] font-semibold tracking-wider uppercase text-white/55">
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+              <span>AccuWeather</span>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <!-- Top-Right Single Frosted Dark Liquid Glass "Options" Button -->
+      <button
+        type="button"
+        id="options-trigger-btn"
+        class="options-pill liquid-glass liquid-sheen px-5 py-3.5 rounded-full flex items-center gap-3 text-sm sm:text-base font-semibold tracking-tight cursor-pointer focus:outline-none"
+      >
+        <!-- 3-Line Hamburger Icon -->
+        <svg class="w-5 h-5" style="color: var(--theme-accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+          <line x1="4" y1="7" x2="20" y2="7" />
+          <line x1="4" y1="12" x2="20" y2="12" />
+          <line x1="4" y1="17" x2="20" y2="17" />
+        </svg>
+        <span>Options</span>
+      </button>
+    </header>
+
+    <!-- Center Open Wallpaper Showcase + Clean Focused App Name Only -->
+    <section class="flex-1 flex flex-col items-center justify-end pb-5 pointer-events-none">
+      <h1
+        id="active-app-name"
+        class="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight text-white drop-shadow-[0_4px_18px_rgba(0,0,0,0.65)] transition-all duration-200"
+      >
+        YouTube
+      </h1>
+    </section>
+
+    <!-- Bottom Deep Frosted Dark Liquid Glass Dock (5 Visible Apps + Minimal Pill Scrollbar Only) -->
+    <footer class="w-full flex flex-col items-center">
+      <div class="dock-shell">
+        <div class="dock-glass liquid-glass liquid-sheen"></div>
+        <!-- 5-App Sliding Viewport with Proper Edge Clearance -->
+        <div id="dock-viewport" class="dock-viewport">
+          <div id="dock-track" class="dock-track">
+            <!-- Monochrome Wallpaper-Themed App Cards Injected via JS -->
+          </div>
+        </div>
+
+        <!-- Centered Minimal Liquid Glass Pill Scrollbar Indicator -->
+        <div class="dock-scrollbar-track">
+          <div id="dock-scrollbar-thumb" class="dock-scrollbar-thumb" style="width: 41.6%; transform: translateX(0px);"></div>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <!-- Comprehensive Liquid Glass Options & Control Hub Overlay -->
+  <div id="options-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-8 bg-black/55 backdrop-blur-md">
+    <div class="liquid-glass-deep liquid-sheen w-full max-w-5xl rounded-[32px] p-5 sm:p-8 flex flex-col gap-5 max-h-[90vh]">
+
+      <!-- Modal Header -->
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-white/15 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl flex items-center justify-center bg-white/10 border border-white/20" style="color: var(--theme-accent);">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="4" y1="7" x2="20" y2="7" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="17" x2="20" y2="17" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-xl sm:text-2xl font-bold tracking-tight">VOS TV Control Center</h2>
+            <p class="text-xs text-white/65">Wallpaper Engine &bull; Liquid Glass Theme &bull; AccuWeather &bull; TV Utilities</p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          id="close-options-btn"
+          class="glass-btn px-4 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2 cursor-pointer"
+        >
+          <span>Done</span>
+          <span class="px-1.5 py-0.5 text-[10px] rounded bg-white/15">ESC</span>
+        </button>
+      </div>
+
+      <!-- Hub Category Navigation Tabs -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" data-hub-tab="wallpapers" class="hub-tab-btn active glass-btn px-4 py-2 rounded-full text-xs sm:text-sm font-semibold cursor-pointer">
+          Wallpaper Engine
+        </button>
+        <button type="button" data-hub-tab="appearance" class="hub-tab-btn glass-btn px-4 py-2 rounded-full text-xs sm:text-sm font-semibold cursor-pointer">
+          Glass &amp; Clock
+        </button>
+        <button type="button" data-hub-tab="weather" class="hub-tab-btn glass-btn px-4 py-2 rounded-full text-xs sm:text-sm font-semibold cursor-pointer">
+          AccuWeather
+        </button>
+        <button type="button" data-hub-tab="apps" class="hub-tab-btn glass-btn px-4 py-2 rounded-full text-xs sm:text-sm font-semibold cursor-pointer">
+          Dock Apps
+        </button>
+        <button type="button" data-hub-tab="tools" class="hub-tab-btn glass-btn px-4 py-2 rounded-full text-xs sm:text-sm font-semibold cursor-pointer">
+          TV Tools &amp; System
+        </button>
+      </div>
+
+      <!-- Tab Content Viewport -->
+      <div class="flex-1 overflow-y-auto custom-scroll pr-1">
+
+        <!-- TAB 1: WALLPAPER ENGINE (REAL PHOTOGRAPHY + HOURLY SHUFFLE PLAYLIST + FILE UPLOAD) -->
+        <div id="tab-wallpapers" class="hub-panel flex flex-col gap-5">
+
+          <!-- Hourly Auto-Shuffle Engine Bar -->
+          <div class="liquid-glass rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2.5">
+                <span class="text-sm sm:text-base font-bold">Hourly Wallpaper Shuffle Engine</span>
+                <span id="shuffle-status-pill" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/15 text-white/80">
+                  Off
+                </span>
+              </div>
+              <p class="text-xs text-white/70">Automatically rotates through your checked favorite photos every hour</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5">
+              <select id="shuffle-interval-select" class="bg-black/45 border border-white/20 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none">
+                <option value="3600000">Every 1 Hour</option>
+                <option value="1800000">Every 30 Minutes</option>
+                <option value="900000">Every 15 Minutes</option>
+                <option value="10000">Demo (Every 10s)</option>
+              </select>
+
+              <button type="button" id="toggle-shuffle-btn" class="glass-btn px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer">
+                Enable Hourly Shuffle
+              </button>
+
+              <button type="button" id="shuffle-now-btn" class="glass-btn px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer">
+                Shuffle Now
+              </button>
+            </div>
+          </div>
+
+          <!-- Genre Filter Pills + Custom File Upload -->
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" data-wp-genre="All" class="wp-genre-btn glass-btn is-focused px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer">All Photos</button>
+              <button type="button" data-wp-genre="Landscape" class="wp-genre-btn glass-btn px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer">Landscape</button>
+              <button type="button" data-wp-genre="Nature" class="wp-genre-btn glass-btn px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer">Nature</button>
+              <button type="button" data-wp-genre="Abstract" class="wp-genre-btn glass-btn px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer">Abstract</button>
+              <button type="button" data-wp-genre="Uploads" class="wp-genre-btn glass-btn px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer">My Uploads</button>
+            </div>
+
+            <div>
+              <input type="file" id="wallpaper-file-input" accept="image/*" class="hidden" />
+              <button type="button" id="upload-wp-btn" class="glass-btn px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 cursor-pointer">
+                <span>+ Upload Image File</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Real Photography Wallpaper Grid (Click card to apply, click checkmark to include in Hourly Shuffle) -->
+          <div id="wallpaper-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+
+        <!-- TAB 2: GLASS & CLOCK CUSTOMIZATION -->
+        <div id="tab-appearance" class="hub-panel hidden flex-col gap-5">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <!-- Monochrome App Icon Color Sync -->
+            <div class="liquid-glass rounded-2xl p-5 flex flex-col gap-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-sm sm:text-base font-bold">Monochrome Icon Theme Sync</h3>
+                  <p class="text-xs text-white/70 mt-0.5">Matches all TV &amp; phone icons to one unified wallpaper color</p>
+                </div>
+                <button type="button" id="toggle-auto-tint-btn" class="glass-btn px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer">
+                  Auto: On
+                </button>
+              </div>
+
+              <div class="text-xs text-white/65 mt-1">Or pick a custom monochrome glass tint:</div>
+              <div id="accent-swatches" class="flex flex-wrap items-center gap-2.5">
+                <!-- Swatches injected via JS -->
+              </div>
+            </div>
+
+            <!-- Frosted Dark Glass Intensity & Vignette -->
+            <div class="liquid-glass rounded-2xl p-5 flex flex-col gap-4">
+              <div>
+                <div class="flex justify-between text-xs sm:text-sm font-bold mb-1.5">
+                  <span>Liquid Glass Frost Blur</span>
+                  <span id="frost-value-label">36px (Deep Dark Glass)</span>
+                </div>
+                <input id="frost-slider" type="range" min="16" max="54" value="36" class="w-full accent-white cursor-pointer" />
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs sm:text-sm font-bold mb-1.5">
+                  <span>Ambient Backdrop Dimming</span>
+                  <span id="vignette-value-label">46%</span>
+                </div>
+                <input id="vignette-slider" type="range" min="15" max="75" value="46" class="w-full accent-white cursor-pointer" />
+              </div>
+            </div>
+
+            <!-- Bubbly Liquid Glass Clock Options & Blur-Morph Test -->
+            <div class="liquid-glass rounded-2xl p-5 flex flex-col justify-between gap-4 md:col-span-2">
+              <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h3 class="text-sm sm:text-base font-bold">Bubbly Liquid Glass Clock &amp; Blur-Morph</h3>
+                  <p class="text-xs text-white/70 mt-0.5">Digits smoothly blur and morph whenever the minute or hour changes</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2.5">
+                  <button type="button" id="toggle-24h-btn" class="glass-btn px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer">
+                    Format: 24-Hour
+                  </button>
+                  <button type="button" id="toggle-seconds-btn" class="glass-btn px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer">
+                    Seconds: Off
+                  </button>
+                  <button type="button" id="preview-clock-blur-btn" class="glass-btn px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer" style="border-color: rgba(var(--theme-accent-rgb), 0.7);">
+                    Test Time Blur Animation
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: ACCUWEATHER SETTINGS -->
+        <div id="tab-weather" class="hub-panel hidden flex-col gap-5">
+          <div class="liquid-glass rounded-2xl p-5 flex flex-col gap-4">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="text-base font-bold">AccuWeather Forecast Widget</h3>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-orange-500/25 text-orange-300 border border-orange-400/30">Live Preset Sync</span>
+                </div>
+                <p class="text-xs text-white/70 mt-0.5">Select your city or toggle temperature units for the home screen clock card</p>
+              </div>
+
+              <button type="button" id="toggle-temp-unit-btn" class="glass-btn px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer">
+                Units: Celsius (°C)
+              </button>
+            </div>
+
+            <div id="weather-city-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <!-- Cities populated via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: DOCK APPS MANAGER -->
+        <div id="tab-apps" class="hub-panel hidden flex-col gap-4">
+          <div class="liquid-glass rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <h3 class="text-sm sm:text-base font-bold">Installed TV &amp; Phone Apps</h3>
+              <p class="text-xs text-white/70">Toggle visibility or move favorite apps to the front of your 5-slot dock</p>
+            </div>
+            <button type="button" id="reset-apps-btn" class="glass-btn px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer">
+              Reset Order
+            </button>
+          </div>
+
+          <div id="apps-manager-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- TAB 5: TV QUICK TOOLS & RK77 SYSTEM DIAGNOSTICS -->
+        <div id="tab-tools" class="hub-panel hidden flex-col gap-5">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- RAM Cleaner -->
+            <div class="liquid-glass rounded-2xl p-5 flex flex-col justify-between gap-4">
+              <div>
+                <h3 class="text-sm font-bold">Memory Optimizer</h3>
+                <p id="ram-status-text" class="text-xs text-white/70 mt-1">612 MB / 1.0 GB Used (RK77)</p>
+              </div>
+              <button type="button" id="boost-ram-btn" class="glass-btn w-full py-2.5 rounded-xl text-xs font-semibold cursor-pointer">
+                Boost TV Memory
+              </button>
+            </div>
+
+            <!-- Ambient Screensaver Mode -->
+            <div class="liquid-glass rounded-2xl p-5 flex flex-col justify-between gap-4">
+              <div>
+                <h3 class="text-sm font-bold">Ambient Wallpaper Mode</h3>
+                <p class="text-xs text-white/70 mt-1">Hides the dock to showcase pure photography &amp; floating clock</p>
+              </div>
+              <button type="button" id="ambient-mode-btn" class="glass-btn w-full py-2.5 rounded-xl text-xs font-semibold cursor-pointer">
+                Enter Ambient View
+              </button>
+            </div>
+
+            <!-- Network & Display Status -->
+            <div class="liquid-glass rounded-2xl p-5 flex flex-col justify-between gap-2">
+              <h3 class="text-sm font-bold">Hardware &amp; Network</h3>
+              <div class="text-xs text-white/75 space-y-1">
+                <div>Board: <span class="text-white font-semibold">General RK77 (API 23)</span></div>
+                <div>Wi-Fi: <span class="text-emerald-300 font-semibold">Connected (5 GHz)</span></div>
+                <div id="display-res-label">Viewport: 1920 &times; 1080</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Simulated Immersive Fullscreen App Window (Appears After Home Screen Zooms Out & Blurs) -->
+  <div id="launched-app-window" class="p-6 sm:p-12">
+    <div class="liquid-glass-deep liquid-sheen w-full max-w-4xl rounded-[32px] p-8 sm:p-10 flex flex-col items-center text-center gap-6">
+      <div id="launched-app-icon" class="w-24 h-24 rounded-3xl flex items-center justify-center shadow-2xl border border-white/30" style="background: rgba(var(--theme-accent-rgb), 0.22); color: var(--theme-accent);">
+      </div>
+      <div>
+        <h2 id="launched-app-title" class="bubbly-clock-font text-3xl sm:text-5xl">YouTube</h2>
+        <p class="text-sm text-white/70 mt-2">Running smoothly on VOS TV Launcher</p>
+      </div>
+      <div class="w-full max-w-md h-2 rounded-full bg-white/10 overflow-hidden">
+        <div class="h-full w-2/3 rounded-full animate-pulse" style="background: var(--theme-accent);"></div>
+      </div>
+      <button
+        type="button"
+        id="exit-launched-app-btn"
+        class="glass-btn is-focused px-6 py-3 rounded-full text-sm font-semibold cursor-pointer mt-2"
+      >
+        Return to VOS Home (Esc)
+      </button>
+    </div>
+  </div>
+
+  <!-- Ambient Mode Exit Hint -->
+  <button
+    type="button"
+    id="exit-ambient-btn"
+    class="fixed bottom-6 right-6 z-40 hidden liquid-glass px-4 py-2 rounded-full text-xs font-semibold cursor-pointer"
+  >
+    Exit Ambient Mode (Any Key)
+  </button>
+
+  <script>
+    /**
+     * Real High-Resolution Curated Photography across Landscape, Nature, and Abstract.
+     * Each photo includes its dominant monochrome accent color so all app icons automatically
+     * harmonize to a single refined monochrome tone matching the active wallpaper.
+     */
+    const CURATED_WALLPAPERS = [
+      {
+        id: 'wp-alpine-ridge',
+        genre: 'Landscape',
+        title: 'Misty Alpine Ridge',
+        accentHex: '#93c5fd',
+        accentRgb: '147, 197, 253',
+        url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=85',
+        fallbackUrl: 'https://images.pexels.com/photos/417074/pexels-photo-417074.jpeg?auto=compress&cs=tinysrgb&w=1920'
+      },
+      {
+        id: 'wp-nordic-fjord',
+        genre: 'Landscape',
+        title: 'Nordic Fjord Twilight',
+        accentHex: '#7dd3fc',
+        accentRgb: '125, 211, 252',
+        url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1920&q=85',
+        fallbackUrl: 'https://images.pexels.com/photos/1366919/pexels-photo-1366919.jpeg?auto=compress&cs=tinysrgb&w=1920'
+      },
+      {
+        id: 'wp-sahara-dunes',
+        genre: 'Landscape',
+        title: 'Golden Dusk Dunes',
+        accentHex: '#fdba74',
+        accentRgb: '253, 186, 116',
+        url: 'https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=1920&q=85',
+        fallbackUrl: 'https://images.pexels.com/photos/1001435/pexels-photo-1001435.jpeg?auto=compress&cs=tinysrgb&w=1920'
+      },
+      {
+        id: 'wp-emerald-forest',
+        genre: 'Nature',
+        title: 'Deep Emerald Pine Mist',
+        accentHex: '#6ee7b7',
+        accentRgb: '110, 231, 183',
+        url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=85',
+        fallbackUrl: 'https://images.pexels.com/photos/15286/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=1920'
+      },
+      {
+        id: 'wp-aurora-night',
+        genre: 'Nature',
+        title: 'Arctic Aurora Borealis',
+        accentHex: '#5eead4',
+        accentRgb: '94, 234, 212',
+        url: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&q=85',
+        fallbackUrl: 'https://images.pexels.com/photos/1933239/pexels-photo-1933239.jpeg?auto=compress&cs=tinysrgb&w=1920'
+      },
+      {
+        id: 'wp-calm-lake',
+        genre: 'Nature',
+        title: 'Mirror Lake Reflection',
+        accentHex: '#bae6fd',
+        accentRgb: '186, 230, 253',
+        url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1920&q=85',
+        fallbackUrl: 'https://images.pexels.com/photos/346529/pexels-photo-346529.jpeg?auto=compress&cs=tinysrgb&w=1920'
+      },
+      {
+        id: 'wp-abstract-glass',
+        genre: 'Abstract',
+        title: 'Dark Architectural Prism',
+        accentHex: '#c4b5fd',
+        accentRgb: '196, 181, 253',
+        url: 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1920&q=85',
+        fallbackUrl: 'https://images.pexels.com/photos/2693212/pexels-photo-2693212.png?auto=compress&cs=tinysrgb&w=1920'
+      },
+      {
+        id: 'wp-abstract-silk',
+        genre: 'Abstract',
+        title: 'Obsidian Fluid Waves',
+        accentHex: '#cbd5e1',
+        accentRgb: '203, 213, 225',
+        url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1920&q=85',
+        fallbackUrl: 'https://images.pexels.com/photos/3109807/pexels-photo-3109807.jpeg?auto=compress&cs=tinysrgb&w=1920'
+      },
+      {
+        id: 'wp-abstract-amber',
+        genre: 'Abstract',
+        title: 'Warm Copper Refraction',
+        accentHex: '#fda4af',
+        accentRgb: '253, 164, 175',
+        url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=1920&q=85',
+        fallbackUrl: 'https://images.pexels.com/photos/2832382/pexels-photo-2832382.jpeg?auto=compress&cs=tinysrgb&w=1920'
+      }
+    ];
+
+    const MONOCHROME_SWATCHES = [
+      { name: 'Glacial Ice', hex: '#93c5fd', rgb: '147, 197, 253' },
+      { name: 'Silver Frost', hex: '#e2e8f0', rgb: '226, 232, 240' },
+      { name: 'Emerald Mist', hex: '#6ee7b7', rgb: '110, 231, 183' },
+      { name: 'Warm Amber', hex: '#fdba74', rgb: '253, 186, 116' },
+      { name: 'Violet Dusk', hex: '#c4b5fd', rgb: '196, 181, 253' },
+      { name: 'Rose Quartz', hex: '#fda4af', rgb: '253, 164, 175' }
+    ];
+
+    const ACCUWEATHER_CITIES = [
+      { id: 'erbil', name: 'Erbil', tempC: 21, highC: 23, lowC: 11, condition: 'Clear & Crisp', icon: 'sun' },
+      { id: 'sulaymaniyah', name: 'Sulaymaniyah', tempC: 19, highC: 21, lowC: 9, condition: 'Partly Sunny', icon: 'partly' },
+      { id: 'duhok', name: 'Duhok', tempC: 18, highC: 20, lowC: 8, condition: 'Mountain Breeze', icon: 'partly' },
+      { id: 'baghdad', name: 'Baghdad', tempC: 26, highC: 28, lowC: 14, condition: 'Bright & Clear', icon: 'sun' },
+      { id: 'london', name: 'London', tempC: 12, highC: 14, lowC: 7, condition: 'Light Mist', icon: 'cloud' },
+      { id: 'tokyo', name: 'Tokyo', tempC: 16, highC: 18, lowC: 10, condition: 'Clear Sky', icon: 'moon' },
+      { id: 'newyork', name: 'New York', tempC: 14, highC: 16, lowC: 6, condition: 'Breezy & Clear', icon: 'partly' },
+      { id: 'dubai', name: 'Dubai', tempC: 30, highC: 32, lowC: 22, condition: 'Sunny & Warm', icon: 'sun' }
+    ];
+
+    /**
+     * Complete TV & Phone App Registry (Auto-Discovers all installed apps via Android Native Bridge or Fallback)
+     */
+    const DEFAULT_APPS = [
+      {
+        id: 'youtube',
+        name: 'YouTube',
+        pkg: 'com.google.android.youtube.tv',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.3 3.6-6.3 3.6Z"/></svg>`
+      },
+      {
+        id: 'tiktok',
+        name: 'TikTok Lite',
+        pkg: 'com.zhiliaoapp.musically.go',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 0 1-2.59 2.5c-1.42 0-2.6-1.16-2.6-2.6 0-1.72 1.66-3.01 3.37-2.48V9.66c-3.45-.46-6.47 2.22-6.47 5.64 0 3.33 2.76 5.7 5.69 5.7 3.14 0 5.69-2.55 5.69-5.7V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3s-1.88.09-3.24-1.48Z"/></svg>`
+      },
+      {
+        id: 'netflix',
+        name: 'Netflix',
+        pkg: 'com.netflix.ninja',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M5.5 2h3.6l5.4 13.4V2H18v20h-3.5L9 8.4V22H5.5V2Z"/></svg>`
+      },
+      {
+        id: 'stremio',
+        name: 'Stremio',
+        pkg: 'com.stremio.one',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 2 12l10 10 10-10L12 2Zm-2 6.5 6 3.5-6 3.5v-7Z"/></svg>`
+      },
+      {
+        id: 'spotify',
+        name: 'Spotify',
+        pkg: 'com.spotify.tv.android',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm4.58 14.42a.62.62 0 0 1-.85.2c-2.34-1.43-5.28-1.75-8.75-.96a.62.62 0 1 1-.28-1.21c3.8-.87 7.05-.5 9.68 1.11.29.18.38.56.2.86Zm1.22-2.72a.78.78 0 0 1-1.07.26c-2.68-1.65-6.76-2.12-9.93-1.16a.78.78 0 1 1-.45-1.49c3.62-1.1 8.12-.57 11.19 1.32.37.22.48.7.26 1.07Zm.11-2.83C14.7 8.96 9.39 8.78 6.32 9.71a.93.93 0 1 1-.54-1.78c3.52-1.07 9.38-.86 13.08 1.34a.93.93 0 0 1-.95 1.6Z"/></svg>`
+      },
+      {
+        id: 'kodi',
+        name: 'Kodi',
+        pkg: 'org.xbmc.kodi',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 7.5 6.5 12 11l4.5-4.5L12 2Zm6.5 6.5L14 13l4.5 4.5L23 13l-4.5-4.5Zm-13 0L1 13l4.5 4.5L10 13 5.5 8.5ZM12 15l-4.5 4.5L12 24l4.5-4.5L12 15Z"/></svg>`
+      },
+      {
+        id: 'mxplayer',
+        name: 'MX Player',
+        pkg: 'com.mxtech.videoplayer.ad',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm-2 14.5v-9l7 4.5-7 4.5Z"/></svg>`
+      },
+      {
+        id: 'smarttube',
+        name: 'SmartTube',
+        pkg: 'com.teamsmart.videoplayer.tv',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 8.2a3 3 0 0 0-2.1-2.1C17.5 5.5 12 5.5 12 5.5s-5.5 0-7.4.6A3 3 0 0 0 2.5 8.2 29 29 0 0 0 2 12a29 29 0 0 0 .5 3.8 3 3 0 0 0 2.1 2.1c1.9.6 7.4.6 7.4.6s5.5 0 7.4-.6a3 3 0 0 0 2.1-2.1A29 29 0 0 0 22 12a29 29 0 0 0-.5-3.8ZM10 15V9l5.5 3-5.5 3Z"/></svg>`
+      },
+      {
+        id: 'primevideo',
+        name: 'Prime Video',
+        pkg: 'com.amazon.avod.thirdpartyclient',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M14.7 15.6c-.6.6-1.5 1-2.7 1-2.3 0-4-1.6-4-4.2 0-2.6 1.7-4.2 4-4.2 1.2 0 2.1.4 2.7 1l1.5-1.5c-1-1-2.5-1.7-4.2-1.7-3.8 0-6.8 2.7-6.8 6.4 0 3.7 3 6.4 6.8 6.4 1.7 0 3.2-.7 4.2-1.7l-1.5-1.5Z"/></svg>`
+      },
+      {
+        id: 'browser',
+        name: 'Browser',
+        pkg: 'com.android.browser',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/></svg>`
+      },
+      {
+        id: 'files',
+        name: 'File Manager',
+        pkg: 'com.android.documentsui',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M4 5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-7.2l-2-2H4Z"/></svg>`
+      },
+      {
+        id: 'playstore',
+        name: 'Play Store',
+        pkg: 'com.android.vending',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M4 3.5v17a1 1 0 0 0 1.5.86l14.5-8.5a1 1 0 0 0 0-1.72l-14.5-8.5A1 1 0 0 0 4 3.5Z"/></svg>`
+      },
+      {
+        id: 'gallery',
+        name: 'Gallery',
+        pkg: 'com.android.gallery3d',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor"/><path d="m21 16-5-5-6 6-3-3-4 4"/></svg>`
+      },
+      {
+        id: 'settings',
+        name: 'Settings',
+        pkg: 'com.android.settings',
+        visible: true,
+        svg: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>`
+      }
+    ];
+
+    // Persistent Launcher State
+    const state = {
+      focusZone: 'dock', // 'dock' | 'options'
+      dockIndex: 0,
+      isOptionsOpen: false,
+      activeHubTab: 'wallpapers',
+      isAppOpen: false,
+      isAmbientMode: false,
+
+      // Wallpaper & Hourly Shuffle State
+      activeWallpaperId: localStorage.getItem('vos_wp_id') || 'wp-alpine-ridge',
+      uploadedWallpapers: JSON.parse(localStorage.getItem('vos_uploaded_wps') || '[]'),
+      shufflePlaylistIds: JSON.parse(localStorage.getItem('vos_shuffle_ids') || '["wp-alpine-ridge","wp-nordic-fjord","wp-emerald-forest","wp-aurora-night","wp-abstract-glass"]'),
+      shuffleEnabled: localStorage.getItem('vos_shuffle_enabled') === 'true',
+      shuffleIntervalMs: Number(localStorage.getItem('vos_shuffle_interval') || 3600000),
+      selectedGenreFilter: 'All',
+
+      // Glass & Monochrome Icon Theme State
+      autoWallpaperTint: localStorage.getItem('vos_auto_tint') !== 'false',
+      customAccent: JSON.parse(localStorage.getItem('vos_custom_accent') || '{"hex":"#93c5fd","rgb":"147, 197, 253"}'),
+      frostBlurPx: Number(localStorage.getItem('vos_frost_px') || 36),
+      vignettePct: Number(localStorage.getItem('vos_vignette_pct') || 46),
+
+      // Clock & AccuWeather State
+      use24Hour: localStorage.getItem('vos_24h') !== 'false',
+      showSeconds: localStorage.getItem('vos_seconds') === 'true',
+      weatherCityId: localStorage.getItem('vos_weather_city') || 'erbil',
+      tempUnit: localStorage.getItem('vos_temp_unit') || 'C',
+
+      // Apps State
+      apps: JSON.parse(localStorage.getItem('vos_apps_config') || 'null') || DEFAULT_APPS.map(a => ({ id: a.id, visible: true }))
+    };
+
+    let prevDigits = ['', '', '', '', '', ''];
+    let shuffleTimer = null;
+
+    // DOM References
+    const homeStage = document.getElementById('home-stage');
+    const wallpaperLayer = document.getElementById('wallpaper-layer');
+    const dockViewport = document.getElementById('dock-viewport');
+    const dockTrack = document.getElementById('dock-track');
+    const dockThumb = document.getElementById('dock-scrollbar-thumb');
+    const activeAppName = document.getElementById('active-app-name');
+    const optionsBtn = document.getElementById('options-trigger-btn');
+    const optionsModal = document.getElementById('options-modal');
+    const launchedAppWindow = document.getElementById('launched-app-window');
+    const bootScreen = document.getElementById('boot-screen');
+    const bootProgressBar = document.getElementById('boot-progress-bar');
+
+    // Helper: Get All Wallpapers (Curated + User Uploaded)
+    function getAllWallpapers() {
+      return [...CURATED_WALLPAPERS, ...state.uploadedWallpapers];
+    }
+
+    // Helper: Get Visible Ordered Apps
+    function getVisibleApps() {
+      const result = [];
+      state.apps.forEach(cfg => {
+        if (cfg.visible) {
+          const def = DEFAULT_APPS.find(d => d.id === cfg.id);
+          if (def) result.push(def);
+        }
+      });
+      return result.length > 0 ? result : [DEFAULT_APPS[0]];
+    }
+
+    // 1. Apply Active Wallpaper & Sync Monochrome Icon Theme Color
+    function applyWallpaperById(id) {
+      const all = getAllWallpapers();
+      const wp = all.find(w => w.id === id) || CURATED_WALLPAPERS[0];
+      state.activeWallpaperId = wp.id;
+      localStorage.setItem('vos_wp_id', wp.id);
+
+      const img = new Image();
+      img.onload = () => {
+        wallpaperLayer.style.backgroundImage = `url("${wp.url}")`;
+      };
+      img.onerror = () => {
+        wallpaperLayer.style.backgroundImage = `url("${wp.fallbackUrl || wp.url}")`;
+      };
+      img.src = wp.url;
+
+      if (state.autoWallpaperTint) {
+        setMonochromeAccent(wp.accentHex || '#93c5fd', wp.accentRgb || '147, 197, 253');
+      }
+      renderWallpaperGrid();
+    }
+
+    function setMonochromeAccent(hex, rgb) {
+      document.documentElement.style.setProperty('--theme-accent', hex);
+      document.documentElement.style.setProperty('--theme-accent-rgb', rgb);
+    }
+
+    // 2. Hourly Wallpaper Shuffle Engine
+    function restartShuffleTimer() {
+      if (shuffleTimer) clearInterval(shuffleTimer);
+      const pill = document.getElementById('shuffle-status-pill');
+      const toggleBtn = document.getElementById('toggle-shuffle-btn');
+
+      if (!state.shuffleEnabled) {
+        pill.textContent = 'Off';
+        pill.style.background = 'rgba(255,255,255,0.14)';
+        toggleBtn.textContent = 'Enable Hourly Shuffle';
+        return;
+      }
+
+      pill.textContent = 'Active';
+      pill.style.background = 'rgba(var(--theme-accent-rgb), 0.35)';
+      toggleBtn.textContent = 'Disable Hourly Shuffle';
+
+      shuffleTimer = setInterval(() => {
+        triggerNextShuffleWallpaper();
+      }, state.shuffleIntervalMs);
+    }
+
+    function triggerNextShuffleWallpaper() {
+      const all = getAllWallpapers();
+      const pool = all.filter(w => state.shufflePlaylistIds.includes(w.id));
+      const candidates = pool.length > 0 ? pool : all;
+      if (candidates.length <= 1) {
+        applyWallpaperById(candidates[0].id);
+        return;
+      }
+      const currentIdx = candidates.findIndex(w => w.id === state.activeWallpaperId);
+      const nextIdx = (currentIdx + 1) % candidates.length;
+      applyWallpaperById(candidates[nextIdx].id);
+    }
+
+    // 3. Bubbly Liquid Glass Clock with Digit Blur-Morph Animation
+    function updateClockDigit(slotId, newChar, index, forceBlur = false) {
+      const el = document.getElementById(slotId);
+      if (!el) return;
+      if (prevDigits[index] !== newChar || forceBlur) {
+        el.classList.remove('digit-blur-in');
+        el.classList.add('digit-blur-out');
+        setTimeout(() => {
+          el.textContent = newChar;
+          el.classList.remove('digit-blur-out');
+          el.classList.add('digit-blur-in');
+        }, 170);
+        prevDigits[index] = newChar;
+      }
+    }
+
+    function updateClock(forceBlur = false) {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+
+      const ampmEl = document.getElementById('clock-ampm');
+      if (!state.use24Hour) {
+        const suffix = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12 || 12;
+        ampmEl.textContent = suffix;
+        ampmEl.classList.remove('hidden');
+      } else {
+        ampmEl.classList.add('hidden');
+      }
+
+      const hourStr = String(hours).padStart(2, '0');
+      updateClockDigit('digit-0', hourStr[0], 0, forceBlur);
+      updateClockDigit('digit-1', hourStr[1], 1, forceBlur);
+      updateClockDigit('digit-2', minutes[0], 2, forceBlur);
+      updateClockDigit('digit-3', minutes[1], 3, forceBlur);
+
+      const secWrap = document.getElementById('clock-seconds-wrap');
+      if (state.showSeconds) {
+        secWrap.classList.remove('hidden');
+        secWrap.classList.add('flex');
+        updateClockDigit('digit-4', seconds[0], 4, forceBlur);
+        updateClockDigit('digit-5', seconds[1], 5, forceBlur);
+      } else {
+        secWrap.classList.add('hidden');
+        secWrap.classList.remove('flex');
+      }
+
+      const dateOpts = { weekday: 'long', month: 'long', day: 'numeric' };
+      document.getElementById('clock-date').textContent = now.toLocaleDateString('en-US', dateOpts);
+    }
+
+    // 4. AccuWeather Widget Rendering
+    function getWeatherSvg(type) {
+      if (type === 'sun') {
+        return `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="currentColor" fill-opacity="0.25"/><path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77"/></svg>`;
+      }
+      if (type === 'moon') {
+        return `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" fill="currentColor" fill-opacity="0.22"/></svg>`;
+      }
+      if (type === 'cloud') {
+        return `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" fill="currentColor" fill-opacity="0.2"/></svg>`;
+      }
+      return `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v2M5.6 5.6l1.4 1.4M18.4 5.6l-1.4 1.4M4 12h2"/><path d="M10 12a4 4 0 0 1 7.4-2"/><path d="M17.5 19H9.5a5.5 5.5 0 1 1 5.2-7.2h2.8a3.5 3.5 0 1 1 0 7.2Z" fill="currentColor" fill-opacity="0.2"/></svg>`;
+    }
+
+    function formatTemp(c) {
+      return state.tempUnit === 'F' ? Math.round((c * 9) / 5 + 32) : c;
+    }
+
+    function renderWeatherWidget() {
+      const city = ACCUWEATHER_CITIES.find(c => c.id === state.weatherCityId) || ACCUWEATHER_CITIES[0];
+      document.getElementById('weather-icon-box').innerHTML = getWeatherSvg(city.icon);
+      document.getElementById('weather-temp').textContent = `${formatTemp(city.tempC)}°`;
+      document.getElementById('weather-cond').textContent = city.condition;
+      document.getElementById('weather-city').textContent = city.name;
+      document.getElementById('weather-hilo').textContent = `H: ${formatTemp(city.highC)}° L: ${formatTemp(city.lowC)}°`;
+    }
+
+    // 5. Render Monochrome Unified TV Cards in the Wider & Taller Dock
+    function renderDock() {
+      const apps = getVisibleApps();
+      if (state.dockIndex >= apps.length) state.dockIndex = 0;
+      dockTrack.innerHTML = '';
+
+      apps.forEach((app, idx) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.id = `dock-card-${idx}`;
+        card.className = 'app-banner-card group focus:outline-none';
+
+        card.innerHTML = `
+          <div class="relative z-10 flex flex-col items-center justify-center gap-2 px-3">
+            <div class="mono-icon-medallion">
+              ${app.svg}
+            </div>
+            <span class="text-[12px] sm:text-[13px] font-semibold text-white/95 tracking-tight truncate max-w-[136px] drop-shadow">
+              ${app.name}
+            </span>
+          </div>
+        `;
+
+        card.addEventListener('click', () => {
+          state.focusZone = 'dock';
+          state.dockIndex = idx;
+          updateFocusUI();
+          launchAppWithAnimation(app);
+        });
+
+        card.addEventListener('mouseenter', () => {
+          if (!state.isOptionsOpen && !state.isAppOpen) {
+            state.focusZone = 'dock';
+            state.dockIndex = idx;
+            updateFocusUI(false);
+          }
+        });
+
+        dockTrack.appendChild(card);
+      });
+
+      syncDockScroll(false);
+    }
+
+    function syncDockScroll(smooth = true) {
+      const apps = getVisibleApps();
+      const cards = dockTrack.querySelectorAll('.app-banner-card');
+      const visibleCount = 5;
+      const maxStart = Math.max(0, apps.length - visibleCount);
+      const windowStart = Math.min(Math.max(0, state.dockIndex - 2), maxStart);
+      const step = cards.length > 1 ? cards[1].offsetLeft - cards[0].offsetLeft : 0;
+
+      if (!smooth) dockTrack.style.transition = 'none';
+      dockTrack.style.transform = `translateX(${-windowStart * step}px)`;
+      cards.forEach((c, i) => {
+        c.classList.toggle('is-offscreen', i < windowStart || i >= windowStart + visibleCount);
+      });
+      if (!smooth) {
+        void dockTrack.offsetWidth;
+        dockTrack.style.transition = '';
+      }
+
+      const trackWidth = (dockThumb.parentElement && dockThumb.parentElement.clientWidth) || 148;
+      const ratioVisible = Math.min(1, visibleCount / Math.max(1, apps.length));
+      const thumbWidth = Math.max(38, ratioVisible * trackWidth);
+      const maxTravel = trackWidth - thumbWidth;
+      const progress = maxStart > 0 ? windowStart / maxStart : 0;
+
+      dockThumb.style.width = `${thumbWidth}px`;
+      dockThumb.style.transform = `translateX(${progress * maxTravel}px)`;
+    }
+
+    // 6. Update Visual Focus Across Dock & Top-Right Options Button
+    function updateFocusUI(shouldScroll = true) {
+      const apps = getVisibleApps();
+      const currentApp = apps[state.dockIndex] || apps[0];
+
+      activeAppName.textContent = currentApp.name;
+
+      document.querySelectorAll('.app-banner-card').forEach(el => el.classList.remove('is-focused'));
+      optionsBtn.classList.remove('is-focused');
+
+      if (state.focusZone === 'dock') {
+        const activeCard = document.getElementById(`dock-card-${state.dockIndex}`);
+        if (activeCard) activeCard.classList.add('is-focused');
+        if (shouldScroll) syncDockScroll(true);
+      } else {
+        optionsBtn.classList.add('is-focused');
+      }
+    }
+
+    // 7. Immersive App Launch Transition
+    function launchAppWithAnimation(app) {
+      if (state.isAppOpen) return;
+      state.isAppOpen = true;
+
+      // Real Android app: launch it natively (no simulated window)
+      if (window.NativeBridge && typeof window.NativeBridge.launchApp === 'function') {
+        let ok = false;
+        try {
+          ok = window.NativeBridge.launchApp(app.pkg) !== false;
+        } catch (e) {
+          console.error(e);
+        }
+        if (!ok) {
+          state.isAppOpen = false;
+          return;
+        }
+        homeStage.classList.add('is-launching');
+        wallpaperLayer.style.transform = 'scale(0.96)';
+        wallpaperLayer.style.filter = 'blur(26px) brightness(0.6)';
+        return;
+      }
+
+      homeStage.classList.add('is-launching');
+      wallpaperLayer.style.transform = 'scale(0.96)';
+      wallpaperLayer.style.filter = 'blur(26px) brightness(0.6)';
+
+      document.getElementById('launched-app-icon').innerHTML = app.svg;
+      document.getElementById('launched-app-title').textContent = app.name;
+
+      setTimeout(() => {
+        launchedAppWindow.style.display = 'flex';
+        requestAnimationFrame(() => {
+          launchedAppWindow.classList.add('is-open');
+        });
+      }, 210);
+    }
+
+    // Called by the Android shell when the launcher returns to the foreground
+    window.onNativeResume = function () {
+      if (!state.isAppOpen) return;
+      launchedAppWindow.classList.remove('is-open');
+      launchedAppWindow.style.display = 'none';
+      homeStage.classList.remove('is-launching');
+      wallpaperLayer.style.transform = 'scale(1.02)';
+      wallpaperLayer.style.filter = 'none';
+      state.isAppOpen = false;
+      state.focusZone = 'dock';
+      updateFocusUI(false);
+    };
+
+    function closeLaunchedApp() {
+      if (!state.isAppOpen) return;
+      launchedAppWindow.classList.remove('is-open');
+
+      setTimeout(() => {
+        launchedAppWindow.style.display = 'none';
+        homeStage.classList.remove('is-launching');
+        wallpaperLayer.style.transform = 'scale(1.02)';
+        wallpaperLayer.style.filter = 'none';
+        state.isAppOpen = false;
+      }, 240);
+    }
+
+    // 8. Options Hub Modal Logic
+    function openOptionsModal(initialTab = 'wallpapers') {
+      state.isOptionsOpen = true;
+      optionsModal.classList.remove('hidden');
+      optionsModal.classList.add('flex');
+      switchHubTab(initialTab);
+    }
+
+    function closeOptionsModal() {
+      state.isOptionsOpen = false;
+      optionsModal.classList.add('hidden');
+      optionsModal.classList.remove('flex');
+      updateFocusUI(false);
+    }
+
+    function switchHubTab(tabName) {
+      state.activeHubTab = tabName;
+      document.querySelectorAll('.hub-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.hubTab === tabName);
+      });
+      document.querySelectorAll('.hub-panel').forEach(panel => {
+        panel.classList.add('hidden');
+        panel.classList.remove('flex');
+      });
+      const targetPanel = document.getElementById(`tab-${tabName}`);
+      if (targetPanel) {
+        targetPanel.classList.remove('hidden');
+        targetPanel.classList.add('flex');
+      }
+
+      if (tabName === 'wallpapers') renderWallpaperGrid();
+      if (tabName === 'appearance') renderAccentSwatches();
+      if (tabName === 'weather') renderWeatherCities();
+      if (tabName === 'apps') renderAppsManager();
+    }
+
+    function renderWallpaperGrid() {
+      const grid = document.getElementById('wallpaper-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      const all = getAllWallpapers();
+      const filtered = state.selectedGenreFilter === 'All'
+        ? all
+        : all.filter(w => w.genre === state.selectedGenreFilter);
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="col-span-full text-center py-8 text-xs text-white/65">No wallpapers in this category yet. Click "+ Upload Image File" to add your own!</div>`;
+        return;
+      }
+
+      filtered.forEach(wp => {
+        const isActive = state.activeWallpaperId === wp.id;
+        const inShuffle = state.shufflePlaylistIds.includes(wp.id);
+
+        const card = document.createElement('div');
+        card.className = `relative aspect-video rounded-2xl overflow-hidden border ${isActive ? 'border-white ring-2 ring-white/80' : 'border-white/20'} cursor-pointer group shadow-lg`;
+
+        card.innerHTML = `
+          <img src="${wp.url}" onerror="this.onerror=null;this.src='${wp.fallbackUrl || wp.url}';" alt="${wp.title}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-black/30 p-3 flex flex-col justify-between">
+            <div class="flex items-center justify-between gap-2">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-black/55 backdrop-blur-md border border-white/15">
+                ${wp.genre}
+              </span>
+              <button
+                type="button"
+                data-shuffle-toggle="${wp.id}"
+                title="Include in Hourly Shuffle Rotation"
+                class="px-2.5 py-1 rounded-full text-[10px] font-bold backdrop-blur-md border transition cursor-pointer ${inShuffle ? 'bg-white text-slate-900 border-white' : 'bg-black/55 text-white/80 border-white/25 hover:bg-white/20'}"
+              >
+                ${inShuffle ? '✓ In Shuffle' : '+ Shuffle'}
+              </button>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs sm:text-sm font-semibold text-white truncate">${wp.title}</span>
+              ${isActive ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white/25 backdrop-blur-md">Active</span>` : ''}
+            </div>
+          </div>
+        `;
+
+        card.addEventListener('click', (e) => {
+          const toggleTarget = e.target.closest('[data-shuffle-toggle]');
+          if (toggleTarget) {
+            e.stopPropagation();
+            const wpId = toggleTarget.dataset.shuffleToggle;
+            if (state.shufflePlaylistIds.includes(wpId)) {
+              state.shufflePlaylistIds = state.shufflePlaylistIds.filter(id => id !== wpId);
+            } else {
+              state.shufflePlaylistIds.push(wpId);
+            }
+            localStorage.setItem('vos_shuffle_ids', JSON.stringify(state.shufflePlaylistIds));
+            renderWallpaperGrid();
+            return;
+          }
+          applyWallpaperById(wp.id);
+        });
+
+        grid.appendChild(card);
+      });
+    }
+
+    function renderAccentSwatches() {
+      const container = document.getElementById('accent-swatches');
+      container.innerHTML = '';
+      MONOCHROME_SWATCHES.forEach(sw => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'glass-btn px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 cursor-pointer';
+        btn.innerHTML = `<span class="w-3.5 h-3.5 rounded-full border border-white/40" style="background:${sw.hex};"></span><span>${sw.name}</span>`;
+        btn.addEventListener('click', () => {
+          state.autoWallpaperTint = false;
+          state.customAccent = { hex: sw.hex, rgb: sw.rgb };
+          localStorage.setItem('vos_auto_tint', 'false');
+          localStorage.setItem('vos_custom_accent', JSON.stringify(state.customAccent));
+          document.getElementById('toggle-auto-tint-btn').textContent = 'Auto: Off';
+          setMonochromeAccent(sw.hex, sw.rgb);
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    function renderWeatherCities() {
+      const grid = document.getElementById('weather-city-grid');
+      grid.innerHTML = '';
+      ACCUWEATHER_CITIES.forEach(c => {
+        const active = c.id === state.weatherCityId;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `glass-btn ${active ? 'is-focused' : ''} p-3 rounded-2xl text-left flex flex-col gap-1 cursor-pointer`;
+        btn.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="text-xs sm:text-sm font-bold">${c.name}</span>
+            <span class="text-sm font-bold" style="color: var(--theme-accent);">${formatTemp(c.tempC)}°</span>
+          </div>
+          <span class="text-[11px] text-white/65">${c.condition}</span>
+        `;
+        btn.addEventListener('click', () => {
+          state.weatherCityId = c.id;
+          localStorage.setItem('vos_weather_city', c.id);
+          renderWeatherWidget();
+          renderWeatherCities();
+        });
+        grid.appendChild(btn);
+      });
+    }
+
+    function renderAppsManager() {
+      const list = document.getElementById('apps-manager-list');
+      list.innerHTML = '';
+      state.apps.forEach((cfg, idx) => {
+        const def = DEFAULT_APPS.find(d => d.id === cfg.id);
+        if (!def) return;
+        const row = document.createElement('div');
+        row.className = 'liquid-glass rounded-2xl p-3 flex items-center justify-between gap-3';
+        row.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10" style="color: var(--theme-accent);">
+              ${def.svg}
+            </div>
+            <span class="text-xs sm:text-sm font-semibold">${def.name}</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button type="button" data-move-up="${idx}" class="glass-btn px-2.5 py-1 rounded-lg text-xs cursor-pointer" title="Move Left">◀</button>
+            <button type="button" data-move-down="${idx}" class="glass-btn px-2.5 py-1 rounded-lg text-xs cursor-pointer" title="Move Right">▶</button>
+            <button type="button" data-toggle-vis="${idx}" class="glass-btn px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer">
+              ${cfg.visible ? 'Shown' : 'Hidden'}
+            </button>
+          </div>
+        `;
+
+        row.querySelector('[data-move-up]').addEventListener('click', () => {
+          if (idx > 0) {
+            [state.apps[idx - 1], state.apps[idx]] = [state.apps[idx], state.apps[idx - 1]];
+            saveAppsAndRefresh();
+          }
+        });
+        row.querySelector('[data-move-down]').addEventListener('click', () => {
+          if (idx < state.apps.length - 1) {
+            [state.apps[idx + 1], state.apps[idx]] = [state.apps[idx], state.apps[idx + 1]];
+            saveAppsAndRefresh();
+          }
+        });
+        row.querySelector('[data-toggle-vis]').addEventListener('click', () => {
+          cfg.visible = !cfg.visible;
+          saveAppsAndRefresh();
+        });
+
+        list.appendChild(row);
+      });
+    }
+
+    function saveAppsAndRefresh() {
+      localStorage.setItem('vos_apps_config', JSON.stringify(state.apps));
+      renderAppsManager();
+      renderDock();
+      updateFocusUI(false);
+    }
+
+    // Event Listeners for Controls
+    optionsBtn.addEventListener('click', () => openOptionsModal('wallpapers'));
+    document.getElementById('weather-pill-trigger').addEventListener('click', () => openOptionsModal('weather'));
+    document.getElementById('close-options-btn').addEventListener('click', closeOptionsModal);
+    document.getElementById('exit-launched-app-btn').addEventListener('click', closeLaunchedApp);
+
+    document.querySelectorAll('.hub-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => switchHubTab(btn.dataset.hubTab));
+    });
+
+    document.querySelectorAll('.wp-genre-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.wp-genre-btn').forEach(b => b.classList.remove('is-focused'));
+        btn.classList.add('is-focused');
+        state.selectedGenreFilter = btn.dataset.wpGenre;
+        renderWallpaperGrid();
+      });
+    });
+
+    document.getElementById('upload-wp-btn').addEventListener('click', () => {
+      document.getElementById('wallpaper-file-input').click();
+    });
+
+    document.getElementById('wallpaper-file-input').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target && ev.target.result;
+        if (!dataUrl) return;
+        const newWp = {
+          id: `custom-${Date.now()}`,
+          genre: 'Uploads',
+          title: file.name.replace(/\.[^/.]+$/, '').slice(0, 26) || 'Custom Wallpaper',
+          accentHex: '#a5d8ff',
+          accentRgb: '165, 216, 255',
+          url: dataUrl
+        };
+        state.uploadedWallpapers.unshift(newWp);
+        state.shufflePlaylistIds.push(newWp.id);
+        try {
+          localStorage.setItem('vos_uploaded_wps', JSON.stringify(state.uploadedWallpapers.slice(0, 4)));
+          localStorage.setItem('vos_shuffle_ids', JSON.stringify(state.shufflePlaylistIds));
+        } catch (err) {
+          console.warn('Image too large for persistent localStorage.');
+        }
+        applyWallpaperById(newWp.id);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('toggle-shuffle-btn').addEventListener('click', () => {
+      state.shuffleEnabled = !state.shuffleEnabled;
+      localStorage.setItem('vos_shuffle_enabled', String(state.shuffleEnabled));
+      restartShuffleTimer();
+    });
+
+    document.getElementById('shuffle-interval-select').addEventListener('change', (e) => {
+      state.shuffleIntervalMs = Number(e.target.value);
+      localStorage.setItem('vos_shuffle_interval', String(state.shuffleIntervalMs));
+      restartShuffleTimer();
+    });
+
+    document.getElementById('shuffle-now-btn').addEventListener('click', triggerNextShuffleWallpaper);
+
+    document.getElementById('toggle-auto-tint-btn').addEventListener('click', () => {
+      state.autoWallpaperTint = !state.autoWallpaperTint;
+      localStorage.setItem('vos_auto_tint', String(state.autoWallpaperTint));
+      document.getElementById('toggle-auto-tint-btn').textContent = state.autoWallpaperTint ? 'Auto: On' : 'Auto: Off';
+      if (state.autoWallpaperTint) {
+        applyWallpaperById(state.activeWallpaperId);
+      } else {
+        setMonochromeAccent(state.customAccent.hex, state.customAccent.rgb);
+      }
+    });
+
+    document.getElementById('frost-slider').addEventListener('input', (e) => {
+      state.frostBlurPx = Number(e.target.value);
+      localStorage.setItem('vos_frost_px', String(state.frostBlurPx));
+      document.documentElement.style.setProperty('--glass-blur', `${state.frostBlurPx}px`);
+      document.getElementById('frost-value-label').textContent = `${state.frostBlurPx}px`;
+    });
+
+    document.getElementById('vignette-slider').addEventListener('input', (e) => {
+      state.vignettePct = Number(e.target.value);
+      localStorage.setItem('vos_vignette_pct', String(state.vignettePct));
+      document.documentElement.style.setProperty('--vignette-opacity', (state.vignettePct / 100).toFixed(2));
+      document.getElementById('vignette-value-label').textContent = `${state.vignettePct}%`;
+    });
+
+    document.getElementById('toggle-24h-btn').addEventListener('click', () => {
+      state.use24Hour = !state.use24Hour;
+      localStorage.setItem('vos_24h', String(state.use24Hour));
+      document.getElementById('toggle-24h-btn').textContent = state.use24Hour ? 'Format: 24-Hour' : 'Format: 12-Hour';
+      updateClock(true);
+    });
+
+    document.getElementById('toggle-seconds-btn').addEventListener('click', () => {
+      state.showSeconds = !state.showSeconds;
+      localStorage.setItem('vos_seconds', String(state.showSeconds));
+      document.getElementById('toggle-seconds-btn').textContent = state.showSeconds ? 'Seconds: On' : 'Seconds: Off';
+      updateClock(true);
+    });
+
+    document.getElementById('preview-clock-blur-btn').addEventListener('click', () => {
+      updateClock(true);
+    });
+
+    document.getElementById('toggle-temp-unit-btn').addEventListener('click', () => {
+      state.tempUnit = state.tempUnit === 'C' ? 'F' : 'C';
+      localStorage.setItem('vos_temp_unit', state.tempUnit);
+      document.getElementById('toggle-temp-unit-btn').textContent = state.tempUnit === 'C' ? 'Units: Celsius (°C)' : 'Units: Fahrenheit (°F)';
+      renderWeatherWidget();
+      renderWeatherCities();
+    });
+
+    document.getElementById('reset-apps-btn').addEventListener('click', () => {
+      state.apps = DEFAULT_APPS.map(a => ({ id: a.id, visible: true }));
+      saveAppsAndRefresh();
+    });
+
+    document.getElementById('boost-ram-btn').addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      btn.textContent = 'Optimizing RK77 RAM...';
+      setTimeout(() => {
+        document.getElementById('ram-status-text').textContent = '348 MB / 1.0 GB Used (264 MB Freed)';
+        btn.textContent = 'Memory Optimized ✓';
+      }, 650);
+    });
+
+    function enterAmbientMode() {
+      closeOptionsModal();
+      state.isAmbientMode = true;
+      document.querySelector('footer').style.opacity = '0';
+      document.querySelector('footer').style.pointerEvents = 'none';
+      activeAppName.style.opacity = '0';
+      optionsBtn.style.opacity = '0';
+      document.getElementById('exit-ambient-btn').classList.remove('hidden');
+    }
+
+    function exitAmbientMode() {
+      if (!state.isAmbientMode) return;
+      state.isAmbientMode = false;
+      document.querySelector('footer').style.opacity = '1';
+      document.querySelector('footer').style.pointerEvents = 'auto';
+      activeAppName.style.opacity = '1';
+      optionsBtn.style.opacity = '1';
+      document.getElementById('exit-ambient-btn').classList.add('hidden');
+    }
+
+    document.getElementById('ambient-mode-btn').addEventListener('click', enterAmbientMode);
+    document.getElementById('exit-ambient-btn').addEventListener('click', exitAmbientMode);
+
+    // 9. Comprehensive TV Remote D-Pad & Key Code Engine (Android TV Remote Compatible)
+    window.addEventListener('keydown', (e) => {
+      if (state.isAmbientMode) {
+        e.preventDefault();
+        exitAmbientMode();
+        return;
+      }
+
+      if (state.isAppOpen) {
+        if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 4 || e.keyCode === 27) {
+          e.preventDefault();
+          closeLaunchedApp();
+        }
+        return;
+      }
+
+      if (state.isOptionsOpen) {
+        if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 4 || e.keyCode === 27) {
+          e.preventDefault();
+          closeOptionsModal();
+        }
+        return;
+      }
+
+      const apps = getVisibleApps();
+      // TV Remote KeyCodes: 19=Up, 20=Down, 21=Left, 22=Right, 23=Center/Enter, 4=Back, 82=Menu/Options
+      const kc = e.keyCode;
+
+      if (e.key === 'ArrowRight' || kc === 22) {
+        e.preventDefault();
+        if (state.focusZone === 'dock') {
+          state.dockIndex = (state.dockIndex + 1) % apps.length;
+          updateFocusUI();
+        }
+      } else if (e.key === 'ArrowLeft' || kc === 21) {
+        e.preventDefault();
+        if (state.focusZone === 'dock') {
+          state.dockIndex = (state.dockIndex - 1 + apps.length) % apps.length;
+          updateFocusUI();
+        }
+      } else if (e.key === 'ArrowUp' || kc === 19) {
+        e.preventDefault();
+        state.focusZone = 'options';
+        updateFocusUI(false);
+      } else if (e.key === 'ArrowDown' || kc === 20) {
+        e.preventDefault();
+        state.focusZone = 'dock';
+        updateFocusUI(false);
+      } else if (e.key === 'Enter' || kc === 23 || kc === 66) {
+        e.preventDefault();
+        if (state.focusZone === 'options') {
+          openOptionsModal('wallpapers');
+        } else {
+          launchAppWithAnimation(apps[state.dockIndex]);
+        }
+      } else if (e.key === 'ContextMenu' || kc === 82 || kc === 183) {
+        // TV Remote Menu Button
+        e.preventDefault();
+        openOptionsModal('wallpapers');
+      } else if (e.key === 'Escape' || kc === 4) {
+        // TV Remote Back Button
+        e.preventDefault();
+        if (state.focusZone === 'options') {
+          state.focusZone = 'dock';
+          updateFocusUI(false);
+        }
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      syncDockScroll(false);
+      document.getElementById('display-res-label').textContent = `Viewport: ${window.innerWidth} × ${window.innerHeight}`;
+    });
+
+    // Boot Sequence & Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+      document.documentElement.style.setProperty('--glass-blur', `${state.frostBlurPx}px`);
+      document.documentElement.style.setProperty('--vignette-opacity', (state.vignettePct / 100).toFixed(2));
+      document.getElementById('frost-slider').value = state.frostBlurPx;
+      document.getElementById('frost-value-label').textContent = `${state.frostBlurPx}px`;
+      document.getElementById('vignette-slider').value = state.vignettePct;
+      document.getElementById('vignette-value-label').textContent = `${state.vignettePct}%`;
+      document.getElementById('toggle-auto-tint-btn').textContent = state.autoWallpaperTint ? 'Auto: On' : 'Auto: Off';
+      document.getElementById('toggle-24h-btn').textContent = state.use24Hour ? 'Format: 24-Hour' : 'Format: 12-Hour';
+      document.getElementById('toggle-seconds-btn').textContent = state.showSeconds ? 'Seconds: On' : 'Seconds: Off';
+      document.getElementById('toggle-temp-unit-btn').textContent = state.tempUnit === 'C' ? 'Units: Celsius (°C)' : 'Units: Fahrenheit (°F)';
+      document.getElementById('shuffle-interval-select').value = String(state.shuffleIntervalMs);
+      document.getElementById('display-res-label').textContent = `Viewport: ${window.innerWidth} × ${window.innerHeight}`;
+
+      if (!state.autoWallpaperTint) {
+        setMonochromeAccent(state.customAccent.hex, state.customAccent.rgb);
+      }
+
+      applyWallpaperById(state.activeWallpaperId);
+      restartShuffleTimer();
+      renderWeatherWidget();
+      renderDock();
+      updateFocusUI(false);
+
+      updateClock(true);
+      setInterval(() => updateClock(false), 1000);
+
+      // Run Boot Screen Sequence on Startup
+      setTimeout(() => {
+        bootProgressBar.style.width = '65%';
+      }, 250);
+      setTimeout(() => {
+        bootProgressBar.style.width = '100%';
+      }, 550);
+      setTimeout(() => {
+        bootScreen.classList.add('fade-out');
+        setTimeout(() => {
+          bootScreen.style.display = 'none';
+        }, 700);
+      }, 2800);
+    });
+  </script>
+</body>
+</html>
